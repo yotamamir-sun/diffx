@@ -167,38 +167,51 @@ export function App() {
       const el = document.getElementById(`comment-${comment.id}`)
       return el && el.getBoundingClientRect().height > 0 ? el : null
     }
-    void (async () => {
+    // Resolves to true when the bubble was shown inline, false when the
+    // comment could not be anchored (outdated) — the tracker uses this to
+    // auto-expand the thread in the sidebar so the comment is always visible
+    // somewhere.
+    return (async () => {
       const scroller = document.querySelector('.main-scroll')
-      let card: HTMLElement | null = null
-      // The card itself may take a few frames to appear if the file was just
+      // Look the card up fresh on every use: cards remount while full diffs
+      // stream in (their React key changes), so a held reference can go stale
+      // mid-sweep and leave the loop measuring a detached node.
+      const cardEl = () => document.getElementById(`file-${comment.filePath}`)
+      // The card may take a few frames to appear if the file was just
       // un-viewed above.
-      for (let i = 0; i < 20 && !card; i++) {
-        card = document.getElementById(`file-${comment.filePath}`)
-        if (!card) await pause(30)
+      for (let i = 0; i < 20 && !cardEl(); i++) {
+        await pause(30)
       }
-      if (!card || !scroller) return
-      card.scrollIntoView({ block: 'start' })
+      if (!cardEl() || !scroller) return false
+      cardEl()!.scrollIntoView({ block: 'start' })
       await pause(80)
       let el = laidOutBubble()
       let guard = 0
-      while (!el && card.getBoundingClientRect().bottom > scroller.clientHeight && guard++ < 40) {
+      while (
+        !el &&
+        (cardEl()?.getBoundingClientRect().bottom ?? 0) > scroller.clientHeight &&
+        guard++ < 40
+      ) {
         scroller.scrollBy({ top: scroller.clientHeight * 0.9 })
         await pause(80)
         el = laidOutBubble()
       }
       if (!el) {
-        // The comment's line is not rendered — typically it drifted into
-        // collapsed context because the diff changed after the comment was
-        // made (an "outdated" comment). Land on the file instead of doing
-        // nothing.
-        card.scrollIntoView({ block: 'start' })
-        card.classList.add('comment-bubble-flash')
-        window.setTimeout(() => card!.classList.remove('comment-bubble-flash'), 1500)
-        return
+        // The comment's line is not rendered (outdated, or a line the diff
+        // component won't host an annotation on). Land on the file instead of
+        // doing nothing; the tracker opens the thread in the sidebar.
+        const card = cardEl()
+        if (card) {
+          card.scrollIntoView({ block: 'start' })
+          card.classList.add('comment-bubble-flash')
+          window.setTimeout(() => card.classList.remove('comment-bubble-flash'), 1500)
+        }
+        return false
       }
       el.scrollIntoView({ block: 'center' })
       el.classList.add('comment-bubble-flash')
       window.setTimeout(() => el.classList.remove('comment-bubble-flash'), 1500)
+      return true
     })()
   }, [viewedFiles, setViewed])
 

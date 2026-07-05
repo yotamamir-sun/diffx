@@ -15,7 +15,8 @@ import { ReplyForm } from './ReplyForm'
 
 interface CommentTrackerProps {
   comments: ReviewComment[]
-  onCommentClick: (comment: ReviewComment) => void
+  /** Resolves false when the comment couldn't be shown inline (outdated). */
+  onCommentClick: (comment: ReviewComment) => Promise<boolean> | void
   onReply: (id: string, body: string) => void
 }
 
@@ -107,7 +108,16 @@ export function CommentTracker({ comments, onCommentClick, onReply }: CommentTra
                     Navigation is handled imperatively in App instead. */}
                 <button
                   type="button"
-                  onClick={() => onCommentClick(comment)}
+                  onClick={() => {
+                    // If the comment can't be shown inline (outdated — its
+                    // line no longer exists in the diff), open the thread
+                    // right here so the click always shows the comment.
+                    Promise.resolve(onCommentClick(comment)).then((anchored) => {
+                      if (anchored === false) {
+                        setExpanded((prev) => new Set(prev).add(comment.id))
+                      }
+                    })
+                  }}
                   className="ct-item-link"
                 >
                   <div className="ct-item-header">

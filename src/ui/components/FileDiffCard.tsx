@@ -62,8 +62,20 @@ export const FileDiffCard = memo(function FileDiffCard({
     return ''
   }
 
+  // A comment whose stored lineContent no longer matches the line it points
+  // at is "outdated" — the code changed after it was written, so it has no
+  // valid line to attach to. Render those pinned at the top of the file card
+  // (GitHub-style) instead of handing them to the diff component, which
+  // would silently drop them.
+  const isOutdated = (a: DiffLineAnnotation<ReviewComment>) => {
+    const current = getLineContent(a.side, a.lineNumber)
+    return current.trimEnd() !== a.metadata.lineContent.trimEnd()
+  }
+  const outdated = annotations.filter(isOutdated)
+  const anchored = annotations.filter((a) => !isOutdated(a))
+
   const allAnnotations: DiffLineAnnotation<ReviewComment | { _pending: true }>[] = [
-    ...annotations,
+    ...anchored,
     ...(pending
       ? [
           {
@@ -91,6 +103,22 @@ export const FileDiffCard = memo(function FileDiffCard({
         </div>
       ) : (
         <>
+          {outdated.length > 0 && (
+            <div className="outdated-comments">
+              <div className="outdated-comments-header">
+                Outdated — the code these comments referenced has changed (was line{' '}
+                {outdated.map((a) => a.lineNumber).join(', ')})
+              </div>
+              {outdated.map((a) => (
+                <CommentBubble
+                  key={a.metadata.id}
+                  comment={a.metadata}
+                  onDelete={onDeleteComment}
+                  onReply={onReplyComment}
+                />
+              ))}
+            </div>
+          )}
           <FileDiff<ReviewComment | { _pending: true }>
             fileDiff={fileDiff}
             options={{

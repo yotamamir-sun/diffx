@@ -98,6 +98,13 @@ export function useComments() {
     [editMutation],
   )
 
+  const setCommentStatus = useCallback(
+    (id: string, status: ReviewComment['status']) => {
+      editMutation.mutate({ id, status })
+    },
+    [editMutation],
+  )
+
   const replyToComment = useCallback(
     (id: string, body: string) => {
       replyMutation.mutate({ id, body })
@@ -156,6 +163,7 @@ export function useComments() {
     removeComment,
     editComment,
     resolveComment,
+    setCommentStatus,
     replyToComment,
     getAnnotationsForFile,
     formatAllComments,

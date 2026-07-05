@@ -18,6 +18,7 @@ interface CommentTrackerProps {
   /** Resolves false when the comment couldn't be shown inline (outdated). */
   onCommentClick: (comment: ReviewComment) => Promise<boolean> | void
   onReply: (id: string, body: string) => void
+  onSetStatus: (id: string, status: ReviewComment['status']) => void
 }
 
 type CommentStatus = 'open' | 'replied' | 'resolved'
@@ -51,7 +52,7 @@ function StatusBadge({ status }: { status: CommentStatus }) {
   }
 }
 
-export function CommentTracker({ comments, onCommentClick, onReply }: CommentTrackerProps) {
+export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus }: CommentTrackerProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   if (comments.length === 0) return null
@@ -152,6 +153,25 @@ export function CommentTracker({ comments, onCommentClick, onReply }: CommentTra
                       <div className="ct-thread-body">{reply.body}</div>
                     </div>
                   ))}
+                  <div className="ct-thread-actions">
+                    {status === 'resolved' ? (
+                      <button
+                        type="button"
+                        className="ct-thread-status-btn"
+                        onClick={() => onSetStatus(comment.id, 'open')}
+                      >
+                        Reopen
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ct-thread-status-btn ct-thread-resolve"
+                        onClick={() => onSetStatus(comment.id, 'resolved')}
+                      >
+                        <CheckCircle2 size={12} /> Resolve
+                      </button>
+                    )}
+                  </div>
                   <ReplyForm onSubmit={(body) => onReply(comment.id, body)} />
                 </div>
               )}

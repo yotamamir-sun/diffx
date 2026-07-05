@@ -20,6 +20,7 @@ interface DiffViewerProps {
   onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
   onDeleteComment: (id: string) => void
   onReplyComment: (id: string, body: string) => void
+  onSetCommentStatus: (id: string, status: ReviewComment['status']) => void
 }
 
 const emptyAnnotations: DiffLineAnnotation<ReviewComment>[] = []
@@ -38,6 +39,7 @@ export const DiffViewer = memo(function DiffViewer({
   onAddComment,
   onDeleteComment,
   onReplyComment,
+  onSetCommentStatus,
 }: DiffViewerProps) {
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
@@ -105,6 +107,7 @@ export const DiffViewer = memo(function DiffViewer({
             onAddComment={onAddComment}
             onDeleteComment={onDeleteComment}
             onReplyComment={onReplyComment}
+            onSetCommentStatus={onSetCommentStatus}
           />
         )
       })}

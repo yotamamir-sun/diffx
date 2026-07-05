@@ -119,7 +119,7 @@ export function App() {
     staged: settings.staged,
     untracked: settings.untracked,
   })
-  const { comments, addComment, removeComment, replyToComment, copyAllComments } =
+  const { comments, addComment, removeComment, replyToComment, setCommentStatus, copyAllComments } =
     useComments()
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
@@ -354,7 +354,12 @@ export function App() {
         onHideTestsChange={(value) => updateSettings({ hideTests: value })}
       />
       {!sidebar.collapsed && (
-        <CommentTracker comments={comments} onCommentClick={handleCommentClick} onReply={replyToComment} />
+        <CommentTracker
+          comments={comments}
+          onCommentClick={handleCommentClick}
+          onReply={replyToComment}
+          onSetStatus={setCommentStatus}
+        />
       )}
     </div>
   )
@@ -436,6 +441,7 @@ export function App() {
               onAddComment={addComment}
               onDeleteComment={removeComment}
               onReplyComment={replyToComment}
+              onSetCommentStatus={setCommentStatus}
             />
           </Virtualizer>
         </main>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { UserCircle, CheckCircle2, Bot } from 'lucide-react'
+import { UserCircle, CheckCircle2, Bot, RotateCcw } from 'lucide-react'
 import type { ReviewComment } from '../../types'
 import { timeAgo } from '../utils'
 import { ReplyForm } from './ReplyForm'
@@ -8,9 +8,10 @@ interface CommentBubbleProps {
   comment: ReviewComment
   onDelete: (id: string) => void
   onReply?: (id: string, body: string) => void
+  onSetStatus?: (id: string, status: ReviewComment['status']) => void
 }
 
-export function CommentBubble({ comment, onDelete, onReply }: CommentBubbleProps) {
+export function CommentBubble({ comment, onDelete, onReply, onSetStatus }: CommentBubbleProps) {
   const [, setTick] = useState(0)
   const isResolved = comment.status === 'resolved'
 
@@ -29,6 +30,25 @@ export function CommentBubble({ comment, onDelete, onReply }: CommentBubbleProps
             <CheckCircle2 size={14} />
             Resolved
           </span>
+        )}
+        {isResolved && onSetStatus && (
+          <button
+            className="comment-bubble-action"
+            onClick={() => onSetStatus(comment.id, 'open')}
+            title="Reopen comment"
+          >
+            <RotateCcw size={13} />
+          </button>
+        )}
+        {!isResolved && onSetStatus && (
+          <button
+            className="comment-bubble-action comment-bubble-resolve"
+            onClick={() => onSetStatus(comment.id, 'resolved')}
+            title="Mark as resolved"
+          >
+            <CheckCircle2 size={14} />
+            Resolve
+          </button>
         )}
         {!isResolved && (
           <button

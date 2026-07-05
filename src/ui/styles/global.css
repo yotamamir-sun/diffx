@@ -1100,6 +1100,62 @@ body {
     margin-top: 10px;
 }
 
+/* Resolve / reopen controls */
+.comment-bubble-action {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 2px 8px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.comment-bubble-action:hover {
+    color: var(--text);
+}
+
+.comment-bubble-resolve:hover {
+    color: var(--success);
+    border-color: var(--success);
+}
+
+/* keep the delete × from being pushed by the resolve button */
+.comment-bubble-header .comment-bubble-delete {
+    margin-left: 6px;
+}
+
+.ct-thread-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ct-thread-status-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.ct-thread-status-btn:hover {
+    color: var(--text);
+}
+
+.ct-thread-resolve:hover {
+    color: var(--success);
+    border-color: var(--success);
+}
+
 /* Whole-diff content search (native Ctrl+F can't see virtualized rows) */
 .diff-search-toggle {
     position: absolute;

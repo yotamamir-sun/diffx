@@ -6,6 +6,7 @@ export interface Settings {
   diffStyle: 'split' | 'unified'
   defaultTabSize: number
   softWrap: boolean
+  hideTests: boolean
   browser?: string
 }
 
@@ -15,6 +16,7 @@ const DEFAULTS: Settings = {
   diffStyle: 'split',
   defaultTabSize: 4,
   softWrap: false,
+  hideTests: false,
 }
 
 export function useSettings() {
@@ -25,7 +27,9 @@ export function useSettings() {
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        setSettings(data)
+        // Merge over defaults so settings saved by an older build (missing
+        // newer keys) don't leave fields undefined.
+        setSettings({ ...DEFAULTS, ...data })
         setLoaded(true)
       })
       .catch(() => setLoaded(true))

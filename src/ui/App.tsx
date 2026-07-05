@@ -90,6 +90,15 @@ function parseDiffLines(patch: string): DiffLineRecord[] {
   return out
 }
 
+// Test files across the common conventions (Go, JS/TS, Python) plus test
+// fixture directories. Used by the "hide tests" toggle.
+const TEST_FILE_RE =
+  /(_test\.go|\.test\.[jt]sx?|\.spec\.[jt]sx?)$|(^|\/)(test_[^/]+\.py|conftest\.py)$|(^|\/)(__tests__|testdata)\//
+
+export function isTestFile(path: string): boolean {
+  return TEST_FILE_RE.test(path)
+}
+
 function useWindowSize({ factor }: { factor: number }) {
   const compute = () => Math.round(window.innerWidth * factor)
 
@@ -181,6 +190,20 @@ export function App() {
   const changedLinesMap = useMemo(() => (patch ? parseChangedLines(patch) : new Map<string, ChangedLines>()), [patch])
 
   const diffLines = useMemo(() => (patch ? parseDiffLines(patch) : []), [patch])
+
+  const hideTests = settings.hideTests
+  const visibleFiles = useMemo(
+    () => (hideTests ? files.filter((f) => !isTestFile(f.name)) : files),
+    [files, hideTests],
+  )
+  const visibleDisplayFiles = useMemo(
+    () => (hideTests ? displayFiles.filter((f) => !isTestFile(f.name)) : displayFiles),
+    [displayFiles, hideTests],
+  )
+  const searchLines = useMemo(
+    () => (hideTests ? diffLines.filter((l) => !isTestFile(l.filePath)) : diffLines),
+    [diffLines, hideTests],
+  )
 
   const binaryFileMap = useMemo(() => {
     const map = new Map<string, (typeof binaryFiles)[number]>()
@@ -319,7 +342,7 @@ export function App() {
   const sidebarContent = (
     <div className="sidebar-content">
       <FileTree
-        files={files}
+        files={visibleFiles}
         activeFile={activeFile}
         commentCounts={commentCounts}
         viewedFiles={viewedFiles}
@@ -327,6 +350,8 @@ export function App() {
         onFileClick={handleFileClick}
         collapsed={sidebar.collapsed}
         onToggleCollapse={handleToggleCollapse}
+        hideTests={hideTests}
+        onHideTestsChange={(value) => updateSettings({ hideTests: value })}
       />
       {!sidebar.collapsed && (
         <CommentTracker comments={comments} onCommentClick={handleCommentClick} onReply={replyToComment} />
@@ -355,7 +380,7 @@ export function App() {
       <Toolbar
         repoName={repoName}
         branch={branch}
-        fileCount={files.length}
+        fileCount={visibleFiles.length}
         additions={diffStats.additions}
         deletions={diffStats.deletions}
         commentCount={comments.length}
@@ -395,10 +420,10 @@ export function App() {
           </Resizable>
         )}
         <main className="main">
-          <DiffSearch lines={diffLines} onNavigate={handleSearchNavigate} />
+          <DiffSearch lines={searchLines} onNavigate={handleSearchNavigate} />
           <Virtualizer className="main-scroll" contentClassName="main-content">
             <DiffViewer
-              files={displayFiles}
+              files={visibleDisplayFiles}
               diffStyle={settings.diffStyle}
               tabSizeMap={tabSizeMap}
               defaultTabSize={settings.defaultTabSize}

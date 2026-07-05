@@ -14,6 +14,8 @@ import {
   Search,
   PanelLeftClose,
   PanelLeftOpen,
+  FlaskConical,
+  FlaskConicalOff,
 } from 'lucide-react'
 import type { FileDiffMetadata } from '@pierre/diffs'
 
@@ -26,6 +28,8 @@ interface FileTreeProps {
   onFileClick: (filePath: string) => void
   collapsed?: boolean
   onToggleCollapse?: () => void
+  hideTests?: boolean
+  onHideTestsChange?: (value: boolean) => void
 }
 
 interface TreeNode {
@@ -218,7 +222,7 @@ function TreeFile({
   )
 }
 
-export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrackedFiles, onFileClick, collapsed, onToggleCollapse }: FileTreeProps) {
+export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrackedFiles, onFileClick, collapsed, onToggleCollapse, hideTests, onHideTestsChange }: FileTreeProps) {
   const [filter, setFilter] = useState('')
 
   const filteredFiles = useMemo(() => {
@@ -271,6 +275,20 @@ export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrac
             className="ft-search-input"
           />
         </div>
+        {onHideTestsChange && (
+          <button
+            type="button"
+            className={`ft-hide-tests ${hideTests ? 'ft-hide-tests-on' : ''}`}
+            onClick={() => onHideTestsChange(!hideTests)}
+            title={
+              hideTests
+                ? 'Test files are hidden — click to show them'
+                : 'Hide test files (*_test.go, *.test.ts, __tests__/, testdata/, …)'
+            }
+          >
+            {hideTests ? <FlaskConicalOff size={14} /> : <FlaskConical size={14} />}
+          </button>
+        )}
       </div>
       <ul className="ft-list ft-root">
         {tree.map((node) =>

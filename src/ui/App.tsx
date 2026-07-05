@@ -119,7 +119,7 @@ export function App() {
     staged: settings.staged,
     untracked: settings.untracked,
   })
-  const { comments, addComment, removeComment, replyToComment, setCommentStatus, copyAllComments } =
+  const { comments, addComment, removeComment, replyToComment, setCommentStatus, editComment, copyAllComments } =
     useComments()
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
@@ -442,6 +442,7 @@ export function App() {
               onDeleteComment={removeComment}
               onReplyComment={replyToComment}
               onSetCommentStatus={setCommentStatus}
+              onEditComment={editComment}
             />
           </Virtualizer>
         </main>

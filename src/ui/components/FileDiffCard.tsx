@@ -26,6 +26,7 @@ interface FileDiffCardProps {
   onDeleteComment: (id: string) => void
   onReplyComment: (id: string, body: string) => void
   onSetCommentStatus: (id: string, status: ReviewComment['status']) => void
+  onEditComment: (id: string, body: string) => void
 }
 
 export const FileDiffCard = memo(function FileDiffCard({
@@ -43,6 +44,7 @@ export const FileDiffCard = memo(function FileDiffCard({
   onDeleteComment,
   onReplyComment,
   onSetCommentStatus,
+  onEditComment,
 }: FileDiffCardProps) {
   const [pending, setPending] = useState<PendingComment | null>(null)
 
@@ -130,6 +132,7 @@ export const FileDiffCard = memo(function FileDiffCard({
                     onDelete={onDeleteComment}
                     onReply={onReplyComment}
                     onSetStatus={onSetCommentStatus}
+                    onEdit={onEditComment}
                   />
                 </div>
               ))}
@@ -177,6 +180,7 @@ export const FileDiffCard = memo(function FileDiffCard({
                   onDelete={onDeleteComment}
                   onReply={onReplyComment}
                   onSetStatus={onSetCommentStatus}
+                  onEdit={onEditComment}
                 />
               )
             }}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { UserCircle, CheckCircle2, Bot, RotateCcw } from 'lucide-react'
+import { UserCircle, CheckCircle2, Bot, RotateCcw, Pencil } from 'lucide-react'
 import type { ReviewComment } from '../../types'
 import { timeAgo } from '../utils'
 import { ReplyForm } from './ReplyForm'
@@ -9,10 +9,13 @@ interface CommentBubbleProps {
   onDelete: (id: string) => void
   onReply?: (id: string, body: string) => void
   onSetStatus?: (id: string, status: ReviewComment['status']) => void
+  onEdit?: (id: string, body: string) => void
 }
 
-export function CommentBubble({ comment, onDelete, onReply, onSetStatus }: CommentBubbleProps) {
+export function CommentBubble({ comment, onDelete, onReply, onSetStatus, onEdit }: CommentBubbleProps) {
   const [, setTick] = useState(0)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
   const isResolved = comment.status === 'resolved'
 
   useEffect(() => {
@@ -50,6 +53,18 @@ export function CommentBubble({ comment, onDelete, onReply, onSetStatus }: Comme
             Resolve
           </button>
         )}
+        {!isResolved && onEdit && !editing && (
+          <button
+            className="comment-bubble-action"
+            onClick={() => {
+              setDraft(comment.body)
+              setEditing(true)
+            }}
+            title="Edit comment"
+          >
+            <Pencil size={13} />
+          </button>
+        )}
         {!isResolved && (
           <button
             className="comment-bubble-delete"
@@ -60,7 +75,28 @@ export function CommentBubble({ comment, onDelete, onReply, onSetStatus }: Comme
           </button>
         )}
       </div>
-      <div className="comment-bubble-body">{comment.body}</div>
+      {editing ? (
+        <div className="comment-form comment-edit-form">
+          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} autoFocus />
+          <div className="comment-form-actions">
+            <button className="btn btn-secondary" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={!draft.trim()}
+              onClick={() => {
+                onEdit?.(comment.id, draft.trim())
+                setEditing(false)
+              }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="comment-bubble-body">{comment.body}</div>
+      )}
       {comment.replies?.length > 0 && (
         <div className="comment-replies">
           {comment.replies.map((reply) => (

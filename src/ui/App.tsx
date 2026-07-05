@@ -13,6 +13,8 @@ import { Toolbar } from './components/Toolbar'
 import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
 import { CommentTracker } from './components/CommentTracker'
+import { DiffSearch } from './components/DiffSearch'
+import type { DiffLineRecord } from './components/DiffSearch'
 import { SidebarStorage } from './sidebarStorage'
 
 export interface ChangedLines {
@@ -53,6 +55,39 @@ function parseChangedLines(patch: string): Map<string, ChangedLines> {
     }
   }
   return map
+}
+
+// Every content line of the patch with its file/side/line coordinates, for
+// whole-diff search (native browser find can't see virtualized/shadow rows).
+function parseDiffLines(patch: string): DiffLineRecord[] {
+  const out: DiffLineRecord[] = []
+  let filePath: string | null = null
+  let oldLn = 0
+  let newLn = 0
+  for (const line of patch.split('\n')) {
+    if (line.startsWith('+++ b/')) {
+      filePath = line.slice(6)
+      continue
+    }
+    if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('\\')) continue
+    if (line.startsWith('@@')) {
+      const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line)
+      if (m) {
+        oldLn = Number(m[1])
+        newLn = Number(m[2])
+      }
+      continue
+    }
+    if (!filePath) continue
+    if (line.startsWith('+')) out.push({ filePath, side: 'additions', lineNumber: newLn++, text: line.slice(1) })
+    else if (line.startsWith('-')) out.push({ filePath, side: 'deletions', lineNumber: oldLn++, text: line.slice(1) })
+    else if (line.startsWith(' ') || line === '') {
+      out.push({ filePath, side: 'additions', lineNumber: newLn, text: line.slice(1) })
+      oldLn++
+      newLn++
+    }
+  }
+  return out
 }
 
 function useWindowSize({ factor }: { factor: number }) {
@@ -144,6 +179,8 @@ export function App() {
   }, [patch])
 
   const changedLinesMap = useMemo(() => (patch ? parseChangedLines(patch) : new Map<string, ChangedLines>()), [patch])
+
+  const diffLines = useMemo(() => (patch ? parseDiffLines(patch) : []), [patch])
 
   const binaryFileMap = useMemo(() => {
     const map = new Map<string, (typeof binaryFiles)[number]>()
@@ -257,6 +294,28 @@ export function App() {
     })()
   }, [viewedFiles, setViewed])
 
+  const handleSearchNavigate = useCallback((record: DiffLineRecord) => {
+    setActiveFile(record.filePath)
+    const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
+    void (async () => {
+      const scroller = document.querySelector('.main-scroll')
+      const cardEl = () => document.getElementById(`file-${record.filePath}`)
+      for (let i = 0; i < 20 && !cardEl(); i++) await pause(30)
+      const card = cardEl()
+      if (!card || !scroller) return
+      // Proportional jump: land near the line, letting the virtualizer render
+      // the region. Precise row targeting isn't possible from outside the
+      // diff component's shadow DOM, but nearby + rendered beats not found.
+      const file = displayFiles.find((f) => f.name === record.filePath)
+      const lines = record.side === 'additions' ? file?.additionLines : file?.deletionLines
+      const total = Math.max(lines?.length ?? 0, 1)
+      const fraction = Math.min(1, record.lineNumber / total)
+      const cardTop = card.getBoundingClientRect().top + scroller.scrollTop
+      const cardHeight = card.getBoundingClientRect().height
+      scroller.scrollTop = cardTop + fraction * cardHeight - scroller.clientHeight / 3
+    })()
+  }, [displayFiles])
+
   const sidebarContent = (
     <div className="sidebar-content">
       <FileTree
@@ -336,6 +395,7 @@ export function App() {
           </Resizable>
         )}
         <main className="main">
+          <DiffSearch lines={diffLines} onNavigate={handleSearchNavigate} />
           <Virtualizer className="main-scroll" contentClassName="main-content">
             <DiffViewer
               files={displayFiles}

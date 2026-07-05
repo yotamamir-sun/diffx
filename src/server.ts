@@ -215,8 +215,22 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
 
   app.put('/api/comments/:id', async (c) => {
     const id = c.req.param('id')
-    const { body, status } = await c.req.json()
-    const updated = await store.update(id, { body, status })
+    const { body, status, resolvedBy } = await c.req.json()
+    // Resolution is attributed like replies: 'agent' unless the web UI says
+    // 'user', so reviewers can tell trusted self-resolutions from agent ones.
+    // Reopening clears the attribution.
+    const updated = await store.update(id, {
+      body,
+      status,
+      resolvedBy:
+        status === 'resolved'
+          ? resolvedBy === 'user'
+            ? ('user' as const)
+            : ('agent' as const)
+          : status === 'open'
+            ? null
+            : undefined,
+    })
     if (!updated) return c.json({ error: 'Comment not found' }, 404)
     return c.json(updated)
   })

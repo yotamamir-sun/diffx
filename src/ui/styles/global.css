@@ -1002,6 +1002,28 @@ body {
     color: var(--success);
 }
 
+.ct-count-resolved-agent,
+.ct-status-resolved-agent {
+    color: #bf8700;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ct-count-resolved-agent,
+    .ct-status-resolved-agent {
+        color: #d29922;
+    }
+}
+
+.comment-resolved-by-agent {
+    color: #bf8700 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    .comment-resolved-by-agent {
+        color: #d29922 !important;
+    }
+}
+
 @media (prefers-color-scheme: dark) {
     .ct-count-open {
         color: #d29922;

@@ -24,14 +24,25 @@ export function CommentBubble({ comment, onDelete, onReply, onSetStatus, onEdit 
   }, [])
 
   return (
-    <div className={`comment-bubble ${isResolved ? 'comment-resolved' : ''}`} id={`comment-${comment.id}`}>
+    <div
+      // Agent-resolved bubbles keep full prominence — the reviewer still
+      // needs to check what was done; only self-resolved ones fade.
+      className={`comment-bubble ${isResolved && comment.resolvedBy !== 'agent' ? 'comment-resolved' : ''}`}
+      id={`comment-${comment.id}`}
+    >
       <div className="comment-bubble-header">
         <UserCircle size={18} className="comment-bubble-avatar" />
         <span className="comment-bubble-time">{timeAgo(comment.createdAt)}</span>
         {isResolved && (
-          <span className="comment-bubble-resolved">
-            <CheckCircle2 size={14} />
-            Resolved
+          <span
+            className={`comment-bubble-resolved ${comment.resolvedBy === 'agent' ? 'comment-resolved-by-agent' : ''}`}
+          >
+            {comment.resolvedBy === 'agent' ? <Bot size={14} /> : <CheckCircle2 size={14} />}
+            {comment.resolvedBy === 'agent'
+              ? 'Resolved by agent'
+              : comment.resolvedBy === 'user'
+                ? 'Resolved by you'
+                : 'Resolved'}
           </span>
         )}
         {isResolved && onSetStatus && (

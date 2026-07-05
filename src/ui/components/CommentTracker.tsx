@@ -29,7 +29,7 @@ function getCommentStatus(comment: ReviewComment): CommentStatus {
   return 'open'
 }
 
-function StatusBadge({ status }: { status: CommentStatus }) {
+function StatusBadge({ status, resolvedBy }: { status: CommentStatus; resolvedBy?: 'user' | 'agent' }) {
   switch (status) {
     case 'open':
       return (
@@ -44,8 +44,17 @@ function StatusBadge({ status }: { status: CommentStatus }) {
         </span>
       )
     case 'resolved':
+      // Agent resolutions stay visually loud: the reviewer hasn't looked at
+      // them yet, unlike their own resolutions.
+      if (resolvedBy === 'agent') {
+        return (
+          <span className="ct-status ct-status-resolved-agent" title="Resolved by agent — review its change">
+            <Bot size={12} />
+          </span>
+        )
+      }
       return (
-        <span className="ct-status ct-status-resolved" title="Resolved">
+        <span className="ct-status ct-status-resolved" title={resolvedBy === 'user' ? 'Resolved by you' : 'Resolved'}>
           <CheckCircle2 size={12} />
         </span>
       )
@@ -70,7 +79,11 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
 
   const openCount = sorted.filter((c) => getCommentStatus(c) === 'open').length
   const repliedCount = sorted.filter((c) => getCommentStatus(c) === 'replied').length
-  const resolvedCount = sorted.filter((c) => getCommentStatus(c) === 'resolved').length
+  const agentResolvedCount = sorted.filter(
+    (c) => getCommentStatus(c) === 'resolved' && c.resolvedBy === 'agent',
+  ).length
+  const resolvedCount =
+    sorted.filter((c) => getCommentStatus(c) === 'resolved').length - agentResolvedCount
 
   return (
     <div className="ct">
@@ -80,6 +93,9 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
         <span className="ct-counts">
           {openCount > 0 && <span className="ct-count ct-count-open">{openCount} open</span>}
           {repliedCount > 0 && <span className="ct-count ct-count-replied">{repliedCount} replied</span>}
+          {agentResolvedCount > 0 && (
+            <span className="ct-count ct-count-resolved-agent">{agentResolvedCount} agent-resolved</span>
+          )}
           {resolvedCount > 0 && <span className="ct-count ct-count-resolved">{resolvedCount} resolved</span>}
         </span>
       </div>
@@ -90,7 +106,8 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
           return (
             <li
               key={comment.id}
-              className={`ct-item ${status === 'resolved' ? 'ct-item-resolved' : ''}`}
+              // Only self-resolved items dim: agent resolutions await review.
+              className={`ct-item ${status === 'resolved' && comment.resolvedBy !== 'agent' ? 'ct-item-resolved' : ''}`}
             >
               <div className="ct-item-row">
                 {/* The thread is fully readable here even when the comment
@@ -122,7 +139,7 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
                   className="ct-item-link"
                 >
                   <div className="ct-item-header">
-                    <StatusBadge status={status} />
+                    <StatusBadge status={status} resolvedBy={comment.resolvedBy} />
                     <span className="ct-item-file" title={comment.filePath}>
                       {fileName(comment.filePath)}:{comment.lineNumber}
                     </span>

@@ -14,6 +14,8 @@ export interface ReviewComment {
   lineContent: string
   body: string
   status: 'open' | 'resolved'
+  /** Who resolved it. Absent on open comments and on data from older servers. */
+  resolvedBy?: 'user' | 'agent'
   createdAt: number
   replies: CommentReply[]
 }

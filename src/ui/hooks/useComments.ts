@@ -43,7 +43,8 @@ export function useComments() {
       const res = await fetch(`/api/comments/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, status }),
+        // Status changes made in the web UI are the reviewer's own.
+        body: JSON.stringify({ body, status, ...(status ? { resolvedBy: 'user' } : {}) }),
       })
       return res.json() as Promise<ReviewComment>
     },

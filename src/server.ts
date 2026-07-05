@@ -216,21 +216,14 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
   app.put('/api/comments/:id', async (c) => {
     const id = c.req.param('id')
     const { body, status, resolvedBy } = await c.req.json()
-    // Resolution is attributed like replies: 'agent' unless the web UI says
-    // 'user', so reviewers can tell trusted self-resolutions from agent ones.
-    // Reopening clears the attribution.
-    const updated = await store.update(id, {
-      body,
-      status,
-      resolvedBy:
-        status === 'resolved'
-          ? resolvedBy === 'user'
-            ? ('user' as const)
-            : ('agent' as const)
-          : status === 'open'
-            ? null
-            : undefined,
-    })
+    // Only the reviewer resolves. An agent asking for 'resolved' (anything
+    // without the web UI's resolvedBy:'user' marker) is recorded as
+    // 'suggested' — it thinks it's done, and the reviewer confirms or
+    // reopens. This also keeps older agent skills (which PUT
+    // status:'resolved' with no marker) landing in the right state.
+    const nextStatus =
+      status === 'resolved' && resolvedBy !== 'user' ? ('suggested' as const) : status
+    const updated = await store.update(id, { body, status: nextStatus })
     if (!updated) return c.json({ error: 'Comment not found' }, 404)
     return c.json(updated)
   })

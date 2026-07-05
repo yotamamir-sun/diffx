@@ -20,3 +20,16 @@ export function fileName(filePath: string): string {
   const parts = filePath.split('/')
   return parts[parts.length - 1]
 }
+
+/**
+ * Effective comment status with legacy tolerance: older servers stored agent
+ * resolutions as status 'resolved' + resolvedBy 'agent' — under the current
+ * model those are suggestions awaiting the reviewer's confirmation.
+ */
+export function commentStatus(comment: {
+  status: 'open' | 'suggested' | 'resolved'
+  resolvedBy?: 'user' | 'agent'
+}): 'open' | 'suggested' | 'resolved' {
+  if (comment.status === 'resolved' && comment.resolvedBy === 'agent') return 'suggested'
+  return comment.status
+}

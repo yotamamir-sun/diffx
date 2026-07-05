@@ -1,10 +1,9 @@
 import type { ReviewComment, CommentReply } from './types.js'
 
-/** Fields accepted by CommentStore.update. resolvedBy: null clears (reopen). */
+/** Fields accepted by CommentStore.update. */
 export interface CommentUpdate {
   body?: string
   status?: ReviewComment['status']
-  resolvedBy?: ReviewComment['resolvedBy'] | null
 }
 
 export interface CommentStore {
@@ -31,10 +30,10 @@ export class InMemoryCommentStore implements CommentStore {
     const comment = this.comments.find((c) => c.id === id)
     if (!comment) return null
     if (fields.body !== undefined) comment.body = fields.body
-    if (fields.status !== undefined) comment.status = fields.status
-    if (fields.resolvedBy !== undefined) {
-      if (fields.resolvedBy === null) delete comment.resolvedBy
-      else comment.resolvedBy = fields.resolvedBy
+    if (fields.status !== undefined) {
+      comment.status = fields.status
+      // Any status transition supersedes legacy attribution data.
+      delete comment.resolvedBy
     }
     return comment
   }

@@ -1002,24 +1002,22 @@ body {
     color: var(--success);
 }
 
-.ct-count-resolved-agent,
-.ct-status-resolved-agent {
+.ct-count-suggested,
+.ct-status-suggested {
     color: #bf8700;
 }
 
-@media (prefers-color-scheme: dark) {
-    .ct-count-resolved-agent,
-    .ct-status-resolved-agent {
-        color: #d29922;
-    }
-}
-
-.comment-resolved-by-agent {
+.comment-suggested {
     color: #bf8700 !important;
 }
 
 @media (prefers-color-scheme: dark) {
-    .comment-resolved-by-agent {
+    .ct-count-suggested,
+    .ct-status-suggested {
+        color: #d29922;
+    }
+
+    .comment-suggested {
         color: #d29922 !important;
     }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { UserCircle, CheckCircle2, Bot, RotateCcw, Pencil } from 'lucide-react'
 import type { ReviewComment } from '../../types'
-import { timeAgo } from '../utils'
+import { timeAgo, commentStatus } from '../utils'
 import { ReplyForm } from './ReplyForm'
 
 interface CommentBubbleProps {
@@ -16,7 +16,7 @@ export function CommentBubble({ comment, onDelete, onReply, onSetStatus, onEdit 
   const [, setTick] = useState(0)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const isResolved = comment.status === 'resolved'
+  const status = commentStatus(comment)
 
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 30000)
@@ -25,46 +25,46 @@ export function CommentBubble({ comment, onDelete, onReply, onSetStatus, onEdit 
 
   return (
     <div
-      // Agent-resolved bubbles keep full prominence — the reviewer still
-      // needs to check what was done; only self-resolved ones fade.
-      className={`comment-bubble ${isResolved && comment.resolvedBy !== 'agent' ? 'comment-resolved' : ''}`}
+      // Only reviewer-confirmed resolutions fade; suggestions stay prominent
+      // because the reviewer still has to judge them.
+      className={`comment-bubble ${status === 'resolved' ? 'comment-resolved' : ''}`}
       id={`comment-${comment.id}`}
     >
       <div className="comment-bubble-header">
         <UserCircle size={18} className="comment-bubble-avatar" />
         <span className="comment-bubble-time">{timeAgo(comment.createdAt)}</span>
-        {isResolved && (
-          <span
-            className={`comment-bubble-resolved ${comment.resolvedBy === 'agent' ? 'comment-resolved-by-agent' : ''}`}
-          >
-            {comment.resolvedBy === 'agent' ? <Bot size={14} /> : <CheckCircle2 size={14} />}
-            {comment.resolvedBy === 'agent'
-              ? 'Resolved by agent'
-              : comment.resolvedBy === 'user'
-                ? 'Resolved by you'
-                : 'Resolved'}
+        {status === 'resolved' && (
+          <span className="comment-bubble-resolved">
+            <CheckCircle2 size={14} />
+            Resolved
           </span>
         )}
-        {isResolved && onSetStatus && (
+        {status === 'suggested' && (
+          <span className="comment-bubble-resolved comment-suggested">
+            <Bot size={14} />
+            Suggested resolved
+          </span>
+        )}
+        {status !== 'open' && onSetStatus && (
           <button
             className="comment-bubble-action"
             onClick={() => onSetStatus(comment.id, 'open')}
-            title="Reopen comment"
+            title={status === 'suggested' ? 'Reject suggestion — reopen' : 'Reopen comment'}
           >
             <RotateCcw size={13} />
           </button>
         )}
-        {!isResolved && onSetStatus && (
+        {status !== 'resolved' && onSetStatus && (
           <button
             className="comment-bubble-action comment-bubble-resolve"
             onClick={() => onSetStatus(comment.id, 'resolved')}
-            title="Mark as resolved"
+            title={status === 'suggested' ? 'Confirm — mark resolved' : 'Mark as resolved'}
           >
             <CheckCircle2 size={14} />
             Resolve
           </button>
         )}
-        {!isResolved && onEdit && !editing && (
+        {status === 'open' && onEdit && !editing && (
           <button
             className="comment-bubble-action"
             onClick={() => {
@@ -76,7 +76,7 @@ export function CommentBubble({ comment, onDelete, onReply, onSetStatus, onEdit 
             <Pencil size={13} />
           </button>
         )}
-        {!isResolved && (
+        {status === 'open' && (
           <button
             className="comment-bubble-delete"
             onClick={() => onDelete(comment.id)}

@@ -8,9 +8,10 @@ import {
   ChevronDown,
   UserCircle,
   Bot,
+  RotateCcw,
 } from 'lucide-react'
 import type { ReviewComment } from '../../types'
-import { timeAgo, truncate, fileName } from '../utils'
+import { timeAgo, truncate, fileName, commentStatus } from '../utils'
 import { ReplyForm } from './ReplyForm'
 
 interface CommentTrackerProps {
@@ -21,15 +22,15 @@ interface CommentTrackerProps {
   onSetStatus: (id: string, status: ReviewComment['status']) => void
 }
 
-type CommentStatus = 'open' | 'replied' | 'resolved'
+type CommentStatus = 'open' | 'replied' | 'suggested' | 'resolved'
 
 function getCommentStatus(comment: ReviewComment): CommentStatus {
-  if (comment.status === 'resolved') return 'resolved'
-  if (comment.replies?.length > 0) return 'replied'
-  return 'open'
+  const status = commentStatus(comment)
+  if (status === 'open' && comment.replies?.length > 0) return 'replied'
+  return status
 }
 
-function StatusBadge({ status, resolvedBy }: { status: CommentStatus; resolvedBy?: 'user' | 'agent' }) {
+function StatusBadge({ status }: { status: CommentStatus }) {
   switch (status) {
     case 'open':
       return (
@@ -43,18 +44,17 @@ function StatusBadge({ status, resolvedBy }: { status: CommentStatus; resolvedBy
           <Reply size={12} />
         </span>
       )
-    case 'resolved':
-      // Agent resolutions stay visually loud: the reviewer hasn't looked at
-      // them yet, unlike their own resolutions.
-      if (resolvedBy === 'agent') {
-        return (
-          <span className="ct-status ct-status-resolved-agent" title="Resolved by agent — review its change">
-            <Bot size={12} />
-          </span>
-        )
-      }
+    case 'suggested':
+      // The agent believes it addressed this; the reviewer confirms or
+      // reopens, so it stays visually loud until then.
       return (
-        <span className="ct-status ct-status-resolved" title={resolvedBy === 'user' ? 'Resolved by you' : 'Resolved'}>
+        <span className="ct-status ct-status-suggested" title="Suggested resolved — confirm or reopen">
+          <Bot size={12} />
+        </span>
+      )
+    case 'resolved':
+      return (
+        <span className="ct-status ct-status-resolved" title="Resolved">
           <CheckCircle2 size={12} />
         </span>
       )
@@ -79,11 +79,8 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
 
   const openCount = sorted.filter((c) => getCommentStatus(c) === 'open').length
   const repliedCount = sorted.filter((c) => getCommentStatus(c) === 'replied').length
-  const agentResolvedCount = sorted.filter(
-    (c) => getCommentStatus(c) === 'resolved' && c.resolvedBy === 'agent',
-  ).length
-  const resolvedCount =
-    sorted.filter((c) => getCommentStatus(c) === 'resolved').length - agentResolvedCount
+  const suggestedCount = sorted.filter((c) => getCommentStatus(c) === 'suggested').length
+  const resolvedCount = sorted.filter((c) => getCommentStatus(c) === 'resolved').length
 
   return (
     <div className="ct">
@@ -93,8 +90,8 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
         <span className="ct-counts">
           {openCount > 0 && <span className="ct-count ct-count-open">{openCount} open</span>}
           {repliedCount > 0 && <span className="ct-count ct-count-replied">{repliedCount} replied</span>}
-          {agentResolvedCount > 0 && (
-            <span className="ct-count ct-count-resolved-agent">{agentResolvedCount} agent-resolved</span>
+          {suggestedCount > 0 && (
+            <span className="ct-count ct-count-suggested">{suggestedCount} suggested</span>
           )}
           {resolvedCount > 0 && <span className="ct-count ct-count-resolved">{resolvedCount} resolved</span>}
         </span>
@@ -106,8 +103,8 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
           return (
             <li
               key={comment.id}
-              // Only self-resolved items dim: agent resolutions await review.
-              className={`ct-item ${status === 'resolved' && comment.resolvedBy !== 'agent' ? 'ct-item-resolved' : ''}`}
+              // Only reviewer-confirmed resolutions dim; suggestions await review.
+              className={`ct-item ${status === 'resolved' ? 'ct-item-resolved' : ''}`}
             >
               <div className="ct-item-row">
                 {/* The thread is fully readable here even when the comment
@@ -139,7 +136,7 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
                   className="ct-item-link"
                 >
                   <div className="ct-item-header">
-                    <StatusBadge status={status} resolvedBy={comment.resolvedBy} />
+                    <StatusBadge status={status} />
                     <span className="ct-item-file" title={comment.filePath}>
                       {fileName(comment.filePath)}:{comment.lineNumber}
                     </span>
@@ -171,21 +168,22 @@ export function CommentTracker({ comments, onCommentClick, onReply, onSetStatus 
                     </div>
                   ))}
                   <div className="ct-thread-actions">
-                    {status === 'resolved' ? (
+                    {status !== 'open' && status !== 'replied' && (
                       <button
                         type="button"
                         className="ct-thread-status-btn"
                         onClick={() => onSetStatus(comment.id, 'open')}
                       >
-                        Reopen
+                        <RotateCcw size={12} /> Reopen
                       </button>
-                    ) : (
+                    )}
+                    {status !== 'resolved' && (
                       <button
                         type="button"
                         className="ct-thread-status-btn ct-thread-resolve"
                         onClick={() => onSetStatus(comment.id, 'resolved')}
                       >
-                        <CheckCircle2 size={12} /> Resolve
+                        <CheckCircle2 size={12} /> {status === 'suggested' ? 'Confirm resolve' : 'Resolve'}
                       </button>
                     )}
                   </div>

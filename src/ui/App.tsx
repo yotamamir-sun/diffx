@@ -35,7 +35,7 @@ export function App() {
     staged: settings.staged,
     untracked: settings.untracked,
   })
-  const { comments, addComment, removeComment, copyAllComments } =
+  const { comments, addComment, removeComment, replyToComment, copyAllComments } =
     useComments()
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
@@ -148,6 +148,60 @@ export function App() {
     setViewed(filePath, viewed)
   }, [setViewed])
 
+  const handleCommentClick = useCallback((comment: ReviewComment) => {
+    // A file marked Viewed collapses to a header stub, unmounting its comment
+    // bubbles — un-view it so the target can render.
+    if (viewedFiles.has(comment.filePath)) {
+      setViewed(comment.filePath, false)
+    }
+    setActiveFile(comment.filePath)
+
+    // The bubble stays in the DOM but the diff component only lays out
+    // content near the visible region, so a bubble deep inside a long file
+    // reports a zero rect — scrollIntoView on it jumps to garbage. Instead:
+    // jump to the file card (which always has real layout), then sweep the
+    // card viewport-by-viewport until the bubble acquires layout, then
+    // center and flash it.
+    const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
+    const laidOutBubble = () => {
+      const el = document.getElementById(`comment-${comment.id}`)
+      return el && el.getBoundingClientRect().height > 0 ? el : null
+    }
+    void (async () => {
+      const scroller = document.querySelector('.main-scroll')
+      let card: HTMLElement | null = null
+      // The card itself may take a few frames to appear if the file was just
+      // un-viewed above.
+      for (let i = 0; i < 20 && !card; i++) {
+        card = document.getElementById(`file-${comment.filePath}`)
+        if (!card) await pause(30)
+      }
+      if (!card || !scroller) return
+      card.scrollIntoView({ block: 'start' })
+      await pause(80)
+      let el = laidOutBubble()
+      let guard = 0
+      while (!el && card.getBoundingClientRect().bottom > scroller.clientHeight && guard++ < 40) {
+        scroller.scrollBy({ top: scroller.clientHeight * 0.9 })
+        await pause(80)
+        el = laidOutBubble()
+      }
+      if (!el) {
+        // The comment's line is not rendered — typically it drifted into
+        // collapsed context because the diff changed after the comment was
+        // made (an "outdated" comment). Land on the file instead of doing
+        // nothing.
+        card.scrollIntoView({ block: 'start' })
+        card.classList.add('comment-bubble-flash')
+        window.setTimeout(() => card!.classList.remove('comment-bubble-flash'), 1500)
+        return
+      }
+      el.scrollIntoView({ block: 'center' })
+      el.classList.add('comment-bubble-flash')
+      window.setTimeout(() => el.classList.remove('comment-bubble-flash'), 1500)
+    })()
+  }, [viewedFiles, setViewed])
+
   const sidebarContent = (
     <div className="sidebar-content">
       <FileTree
@@ -160,7 +214,9 @@ export function App() {
         collapsed={sidebar.collapsed}
         onToggleCollapse={handleToggleCollapse}
       />
-      {!sidebar.collapsed && <CommentTracker comments={comments} />}
+      {!sidebar.collapsed && (
+        <CommentTracker comments={comments} onCommentClick={handleCommentClick} onReply={replyToComment} />
+      )}
     </div>
   )
 
@@ -238,6 +294,7 @@ export function App() {
               fileAnnotationsMap={fileAnnotationsMap}
               onAddComment={addComment}
               onDeleteComment={removeComment}
+              onReplyComment={replyToComment}
             />
           </Virtualizer>
         </main>

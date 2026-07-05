@@ -223,11 +223,14 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
 
   app.post('/api/comments/:id/replies', async (c) => {
     const commentId = c.req.param('id')
-    const { body } = await c.req.json()
+    const { body, author } = await c.req.json()
     const reply = {
       id: crypto.randomUUID(),
       body,
       createdAt: Date.now(),
+      // Replies default to 'agent' so existing agent skills that send only
+      // { body } keep rendering with the bot avatar; the web UI sends 'user'.
+      author: author === 'user' ? ('user' as const) : ('agent' as const),
     }
     const updated = await store.addReply(commentId, reply)
     if (!updated) return c.json({ error: 'Comment not found' }, 404)

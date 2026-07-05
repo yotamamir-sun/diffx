@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react'
 import { UserCircle, CheckCircle2, Bot } from 'lucide-react'
 import type { ReviewComment } from '../../types'
 import { timeAgo } from '../utils'
+import { ReplyForm } from './ReplyForm'
 
 interface CommentBubbleProps {
   comment: ReviewComment
   onDelete: (id: string) => void
+  onReply?: (id: string, body: string) => void
 }
 
-export function CommentBubble({ comment, onDelete }: CommentBubbleProps) {
+export function CommentBubble({ comment, onDelete, onReply }: CommentBubbleProps) {
   const [, setTick] = useState(0)
   const isResolved = comment.status === 'resolved'
 
@@ -44,7 +46,11 @@ export function CommentBubble({ comment, onDelete }: CommentBubbleProps) {
           {comment.replies.map((reply) => (
             <div key={reply.id} className="comment-reply">
               <div className="comment-reply-header">
-                <Bot size={16} className="comment-reply-avatar" />
+                {reply.author === 'user' ? (
+                  <UserCircle size={16} className="comment-bubble-avatar" />
+                ) : (
+                  <Bot size={16} className="comment-reply-avatar" />
+                )}
                 <span className="comment-bubble-time">{timeAgo(reply.createdAt)}</span>
               </div>
               <div className="comment-reply-body">{reply.body}</div>
@@ -52,6 +58,7 @@ export function CommentBubble({ comment, onDelete }: CommentBubbleProps) {
           ))}
         </div>
       )}
+      {onReply && <ReplyForm onSubmit={(body) => onReply(comment.id, body)} />}
     </div>
   )
 }

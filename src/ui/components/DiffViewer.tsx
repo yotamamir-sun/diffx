@@ -17,6 +17,7 @@ interface DiffViewerProps {
   fileAnnotationsMap: Map<string, DiffLineAnnotation<ReviewComment>[]>
   onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
   onDeleteComment: (id: string) => void
+  onReplyComment: (id: string, body: string) => void
 }
 
 const emptyAnnotations: DiffLineAnnotation<ReviewComment>[] = []
@@ -33,6 +34,7 @@ export const DiffViewer = memo(function DiffViewer({
   fileAnnotationsMap,
   onAddComment,
   onDeleteComment,
+  onReplyComment,
 }: DiffViewerProps) {
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
@@ -74,6 +76,7 @@ export const DiffViewer = memo(function DiffViewer({
             />
           )
         }
+        const annotations = fileAnnotationsMap.get(filePath) ?? emptyAnnotations
         return (
           <FileDiffCard
             // Include isPartial in the key so the card remounts when a file is
@@ -81,11 +84,15 @@ export const DiffViewer = memo(function DiffViewer({
             // @pierre/diffs <FileDiff> under the Virtualizer does not re-process
             // an in-place fileDiff change, so without a remount the upgraded
             // diff never renders and hunk-context expansion controls never appear.
-            key={`${filePath}-${index}-${file.isPartial ? 'p' : 'f'}`}
+            // The same applies to the annotation set: annotations that arrive
+            // after hydration (comments API resolving late, agent-posted
+            // comments) never get slots in already-processed rows, so the set
+            // of annotation ids is part of the key too.
+            key={`${filePath}-${index}-${file.isPartial ? 'p' : 'f'}-${annotations.map((a) => a.metadata.id).join(',')}`}
             id={`file-${filePath}`}
             fileDiff={file}
             filePath={filePath}
-            annotations={fileAnnotationsMap.get(filePath) ?? emptyAnnotations}
+            annotations={annotations}
             diffStyle={diffStyle}
             tabSize={tabSizeMap[filePath] ?? defaultTabSize}
             softWrap={softWrap}
@@ -93,6 +100,7 @@ export const DiffViewer = memo(function DiffViewer({
             onViewedChange={onViewedChange}
             onAddComment={onAddComment}
             onDeleteComment={onDeleteComment}
+            onReplyComment={onReplyComment}
           />
         )
       })}

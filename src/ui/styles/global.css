@@ -513,6 +513,22 @@ body {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+/* Applied transiently when the comment tracker navigates to a bubble, so the
+   eye lands on the right comment after the scroll. */
+.comment-bubble-flash {
+    animation: comment-bubble-flash 1.5s ease-out;
+}
+
+@keyframes comment-bubble-flash {
+    0%,
+    40% {
+        box-shadow: 0 0 0 3px var(--primary);
+    }
+    100% {
+        box-shadow: 0 0 0 3px transparent;
+    }
+}
+
 .comment-bubble-header {
     display: flex;
     align-items: center;
@@ -736,9 +752,9 @@ body {
 /* File tree */
 .ft {
     font-size: 13px;
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     overflow-y: auto;
-    min-height: 0;
+    min-height: 100px;
 }
 
 .ft-search {
@@ -911,9 +927,12 @@ body {
 
 /* Comment tracker */
 .ct {
-    flex: 0 1 auto;
+    /* Natural height up to half the sidebar: the file tree above flexes and
+       scrolls, so a long review's comments stay browsable instead of being
+       squeezed down to a couple of rows. */
+    flex: 0 0 auto;
     overflow-y: auto;
-    min-height: 0;
+    max-height: 50%;
     margin-top: auto;
     border-top: 1px solid var(--border);
     padding-bottom: 10px;
@@ -975,12 +994,86 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
+.ct-item-row {
+    display: flex;
+    align-items: flex-start;
+}
+
+.ct-item-expand {
+    flex-shrink: 0;
+    padding: 12px 0 0 6px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.ct-item-expand:hover {
+    color: var(--text);
+}
+
 .ct-item-link {
     display: block;
-    padding: 10px 12px 12px 16px;
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px 12px 4px;
     color: inherit;
     text-decoration: none;
     cursor: pointer;
+    background: none;
+    border: none;
+    font: inherit;
+    text-align: left;
+}
+
+/* Expanded thread: full comment + replies, readable even when the comment can
+   no longer anchor to a diff line (outdated after the code changed). */
+.ct-thread {
+    padding: 0 12px 12px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ct-thread-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+    color: var(--text-secondary);
+}
+
+.ct-thread-body {
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.reply-form textarea {
+    width: 100%;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    resize: vertical;
+}
+
+.reply-form textarea:focus {
+    border-color: var(--primary);
+}
+
+.reply-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
+}
+
+.comment-bubble .reply-form {
+    margin-top: 10px;
 }
 
 .ct-item:last-child {

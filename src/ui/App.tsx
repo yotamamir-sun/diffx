@@ -15,6 +15,46 @@ import { FileTree } from './components/FileTree'
 import { CommentTracker } from './components/CommentTracker'
 import { SidebarStorage } from './sidebarStorage'
 
+export interface ChangedLines {
+  additions: Set<number>
+  deletions: Set<number>
+}
+
+// Per-file sets of +/- line numbers from the raw patch. The diff component
+// only reliably hosts annotation bubbles on changed lines — comments on
+// unchanged context lines are silently dropped by it, so the UI needs to know
+// which comments to promote to the file-top strip instead.
+function parseChangedLines(patch: string): Map<string, ChangedLines> {
+  const map = new Map<string, ChangedLines>()
+  let cur: ChangedLines | null = null
+  let oldLn = 0
+  let newLn = 0
+  for (const line of patch.split('\n')) {
+    if (line.startsWith('+++ b/')) {
+      cur = { additions: new Set(), deletions: new Set() }
+      map.set(line.slice(6), cur)
+      continue
+    }
+    if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('\\')) continue
+    if (line.startsWith('@@')) {
+      const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line)
+      if (m) {
+        oldLn = Number(m[1])
+        newLn = Number(m[2])
+      }
+      continue
+    }
+    if (!cur) continue
+    if (line.startsWith('+')) cur.additions.add(newLn++)
+    else if (line.startsWith('-')) cur.deletions.add(oldLn++)
+    else if (line.startsWith(' ') || line === '') {
+      oldLn++
+      newLn++
+    }
+  }
+  return map
+}
+
 function useWindowSize({ factor }: { factor: number }) {
   const compute = () => Math.round(window.innerWidth * factor)
 
@@ -102,6 +142,8 @@ export function App() {
     }
     return { additions, deletions }
   }, [patch])
+
+  const changedLinesMap = useMemo(() => (patch ? parseChangedLines(patch) : new Map<string, ChangedLines>()), [patch])
 
   const binaryFileMap = useMemo(() => {
     const map = new Map<string, (typeof binaryFiles)[number]>()
@@ -305,6 +347,7 @@ export function App() {
               binaryFiles={binaryFileMap}
               onViewedChange={handleViewedChange}
               fileAnnotationsMap={fileAnnotationsMap}
+              changedLinesMap={changedLinesMap}
               onAddComment={addComment}
               onDeleteComment={removeComment}
               onReplyComment={replyToComment}

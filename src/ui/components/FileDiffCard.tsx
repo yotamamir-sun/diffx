@@ -2,6 +2,7 @@ import { useState, memo } from 'react'
 import { FileDiff } from '@pierre/diffs/react'
 import type { DiffLineAnnotation, FileDiffMetadata, AnnotationSide } from '@pierre/diffs'
 import type { ReviewComment } from '../../types'
+import type { ChangedLines } from '../App'
 import { CommentForm } from './CommentForm'
 import { CommentBubble } from './CommentBubble'
 
@@ -15,6 +16,7 @@ interface FileDiffCardProps {
   fileDiff: FileDiffMetadata
   filePath: string
   annotations: DiffLineAnnotation<ReviewComment>[]
+  changedLines?: ChangedLines
   diffStyle: 'split' | 'unified'
   tabSize: number
   softWrap: boolean
@@ -30,6 +32,7 @@ export const FileDiffCard = memo(function FileDiffCard({
   fileDiff,
   filePath,
   annotations,
+  changedLines,
   diffStyle,
   tabSize,
   softWrap,
@@ -62,17 +65,27 @@ export const FileDiffCard = memo(function FileDiffCard({
     return ''
   }
 
-  // A comment whose stored lineContent no longer matches the line it points
-  // at is "outdated" — the code changed after it was written, so it has no
-  // valid line to attach to. Render those pinned at the top of the file card
-  // (GitHub-style) instead of handing them to the diff component, which
-  // would silently drop them.
-  const isOutdated = (a: DiffLineAnnotation<ReviewComment>) => {
+  // Two kinds of comments can't be shown at their line, so they render pinned
+  // at the top of the file card (GitHub-style) instead of being handed to the
+  // diff component, which silently drops them:
+  //  - outdated: the stored lineContent no longer matches — the code changed
+  //    after the comment was written;
+  //  - unchanged-line: the comment sits on a context line this diff doesn't
+  //    modify, and the diff component only hosts bubbles on +/- lines.
+  const detachReason = (a: DiffLineAnnotation<ReviewComment>): string | null => {
     const current = getLineContent(a.side, a.lineNumber)
-    return current.trimEnd() !== a.metadata.lineContent.trimEnd()
+    if (current.trimEnd() !== a.metadata.lineContent.trimEnd()) {
+      return 'the code here changed after this comment was written'
+    }
+    if (changedLines && !changedLines[a.side].has(a.lineNumber)) {
+      return 'this diff does not modify this line'
+    }
+    return null
   }
-  const outdated = annotations.filter(isOutdated)
-  const anchored = annotations.filter((a) => !isOutdated(a))
+  const detached = annotations
+    .map((a) => ({ annotation: a, reason: detachReason(a) }))
+    .filter((d): d is { annotation: DiffLineAnnotation<ReviewComment>; reason: string } => d.reason !== null)
+  const anchored = annotations.filter((a) => !detached.some((d) => d.annotation === a))
 
   const allAnnotations: DiffLineAnnotation<ReviewComment | { _pending: true }>[] = [
     ...anchored,
@@ -103,19 +116,19 @@ export const FileDiffCard = memo(function FileDiffCard({
         </div>
       ) : (
         <>
-          {outdated.length > 0 && (
+          {detached.length > 0 && (
             <div className="outdated-comments">
-              <div className="outdated-comments-header">
-                Outdated — the code these comments referenced has changed (was line{' '}
-                {outdated.map((a) => a.lineNumber).join(', ')})
-              </div>
-              {outdated.map((a) => (
-                <CommentBubble
-                  key={a.metadata.id}
-                  comment={a.metadata}
-                  onDelete={onDeleteComment}
-                  onReply={onReplyComment}
-                />
+              {detached.map(({ annotation, reason }) => (
+                <div key={annotation.metadata.id}>
+                  <div className="outdated-comments-header">
+                    Line {annotation.lineNumber} — {reason}:
+                  </div>
+                  <CommentBubble
+                    comment={annotation.metadata}
+                    onDelete={onDeleteComment}
+                    onReply={onReplyComment}
+                  />
+                </div>
               ))}
             </div>
           )}

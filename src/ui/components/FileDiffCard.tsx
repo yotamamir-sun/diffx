@@ -5,6 +5,7 @@ import type { ReviewComment } from '../../types'
 import type { ChangedLines } from '../App'
 import { CommentForm } from './CommentForm'
 import { CommentBubble } from './CommentBubble'
+import { DARK_THEME } from '../diffTheme'
 
 interface PendingComment {
   side: AnnotationSide
@@ -145,10 +146,23 @@ export const FileDiffCard = memo(function FileDiffCard({
               stickyHeader: true,
               expansionLineCount: 20,
               enableGutterUtility: true,
-              theme: { dark: 'github-dark', light: 'github-light' },
+              theme: { dark: DARK_THEME, light: 'github-light' },
               themeType: 'system',
               overflow: softWrap ? 'wrap' : 'scroll',
-              unsafeCSS: `:host { --diffs-tab-size: ${tabSize}; }`,
+              // Beyond tab size: soften the dark-mode diff-row tint (stock is
+              // a 20% mix of a bright green/red, which crushes dim syntax
+              // tokens — comments especially). 10% keeps the diff signal; the
+              // gutter number columns keep their stronger stock tint. Light
+              // mode keeps the stock 88% mix.
+              unsafeCSS: `:host {
+                --diffs-tab-size: ${tabSize};
+                --diffs-bg-addition-override: light-dark(
+                  color-mix(in lab, var(--diffs-bg) 88%, var(--diffs-addition-base)),
+                  color-mix(in lab, var(--diffs-bg) 90%, var(--diffs-addition-base)));
+                --diffs-bg-deletion-override: light-dark(
+                  color-mix(in lab, var(--diffs-bg) 88%, var(--diffs-deletion-base)),
+                  color-mix(in lab, var(--diffs-bg) 90%, var(--diffs-deletion-base)));
+              }`,
             }}
             lineAnnotations={allAnnotations}
             renderHeaderMetadata={() => (

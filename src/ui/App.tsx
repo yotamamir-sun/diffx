@@ -31,21 +31,34 @@ function parseChangedLines(patch: string): Map<string, ChangedLines> {
   let cur: ChangedLines | null = null
   let oldLn = 0
   let newLn = 0
+  // Header lines (`--- a/…`, `+++ b/…`, `index …`) only occur outside hunk
+  // bodies; inside a hunk every line starts with +/-/space/backslash. Track
+  // that boundary instead of pattern-matching headers — a deleted line whose
+  // content starts with `--` (e.g. a SQL comment) renders as `--- …` in the
+  // patch and would otherwise be misread as a header and dropped.
+  let inHunk = false
   for (const line of patch.split('\n')) {
-    if (line.startsWith('+++ b/')) {
-      cur = { additions: new Set(), deletions: new Set() }
-      map.set(line.slice(6), cur)
-      continue
-    }
-    if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('\\')) continue
     if (line.startsWith('@@')) {
       const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line)
       if (m) {
         oldLn = Number(m[1])
         newLn = Number(m[2])
+        inHunk = true
       }
       continue
     }
+    if (line.startsWith('diff --git ')) {
+      inHunk = false
+      continue
+    }
+    if (!inHunk) {
+      if (line.startsWith('+++ b/')) {
+        cur = { additions: new Set(), deletions: new Set() }
+        map.set(line.slice(6), cur)
+      }
+      continue
+    }
+    if (line.startsWith('\\')) continue
     if (!cur) continue
     if (line.startsWith('+')) cur.additions.add(newLn++)
     else if (line.startsWith('-')) cur.deletions.add(oldLn++)
@@ -64,20 +77,29 @@ function parseDiffLines(patch: string): DiffLineRecord[] {
   let filePath: string | null = null
   let oldLn = 0
   let newLn = 0
+  // Same in-hunk tracking as parseChangedLines: content lines like `--- x`
+  // (deleted `-- x`) or `+++i` (added `++i`) must not be mistaken for
+  // `--- a/…` / `+++ b/…` headers, which only occur between hunks.
+  let inHunk = false
   for (const line of patch.split('\n')) {
-    if (line.startsWith('+++ b/')) {
-      filePath = line.slice(6)
-      continue
-    }
-    if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('\\')) continue
     if (line.startsWith('@@')) {
       const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line)
       if (m) {
         oldLn = Number(m[1])
         newLn = Number(m[2])
+        inHunk = true
       }
       continue
     }
+    if (line.startsWith('diff --git ')) {
+      inHunk = false
+      continue
+    }
+    if (!inHunk) {
+      if (line.startsWith('+++ b/')) filePath = line.slice(6)
+      continue
+    }
+    if (line.startsWith('\\')) continue
     if (!filePath) continue
     if (line.startsWith('+')) out.push({ filePath, side: 'additions', lineNumber: newLn++, text: line.slice(1) })
     else if (line.startsWith('-')) out.push({ filePath, side: 'deletions', lineNumber: oldLn++, text: line.slice(1) })
@@ -318,26 +340,62 @@ export function App() {
   }, [viewedFiles, setViewed])
 
   const handleSearchNavigate = useCallback((record: DiffLineRecord) => {
+    // A Viewed file collapses to a header stub — un-view it so rows exist.
+    if (viewedFiles.has(record.filePath)) {
+      setViewed(record.filePath, false)
+    }
     setActiveFile(record.filePath)
     const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
+    // The diff component renders rows in an *open* shadow root and stamps
+    // every code line with data-line / data-line-type, so the exact row is
+    // findable from outside — but only once the virtualizer has laid it out.
+    // Context lines are indexed on the additions side (new-file numbering),
+    // matching how parseDiffLines records them.
+    const laidOutRow = () => {
+      const card = document.getElementById(`file-${record.filePath}`)
+      if (!card) return null
+      for (const host of card.querySelectorAll('*')) {
+        const root = (host as HTMLElement).shadowRoot
+        if (!root) continue
+        for (const row of root.querySelectorAll<HTMLElement>(`[data-line="${record.lineNumber}"]`)) {
+          const isDeletion = row.getAttribute('data-line-type') === 'change-deletion'
+          if ((record.side === 'deletions') === isDeletion && row.getBoundingClientRect().height > 0) {
+            return row
+          }
+        }
+      }
+      return null
+    }
+    // Same sweep as handleCommentClick: jump to the file card (always laid
+    // out), then page through it until the target row acquires layout, then
+    // center and flash it.
     void (async () => {
       const scroller = document.querySelector('.main-scroll')
       const cardEl = () => document.getElementById(`file-${record.filePath}`)
       for (let i = 0; i < 20 && !cardEl(); i++) await pause(30)
-      const card = cardEl()
-      if (!card || !scroller) return
-      // Proportional jump: land near the line, letting the virtualizer render
-      // the region. Precise row targeting isn't possible from outside the
-      // diff component's shadow DOM, but nearby + rendered beats not found.
-      const file = displayFiles.find((f) => f.name === record.filePath)
-      const lines = record.side === 'additions' ? file?.additionLines : file?.deletionLines
-      const total = Math.max(lines?.length ?? 0, 1)
-      const fraction = Math.min(1, record.lineNumber / total)
-      const cardTop = card.getBoundingClientRect().top + scroller.scrollTop
-      const cardHeight = card.getBoundingClientRect().height
-      scroller.scrollTop = cardTop + fraction * cardHeight - scroller.clientHeight / 3
+      if (!cardEl() || !scroller) return
+      cardEl()!.scrollIntoView({ block: 'start' })
+      await pause(80)
+      let row = laidOutRow()
+      let guard = 0
+      while (
+        !row &&
+        (cardEl()?.getBoundingClientRect().bottom ?? 0) > scroller.clientHeight &&
+        guard++ < 40
+      ) {
+        scroller.scrollBy({ top: scroller.clientHeight * 0.9 })
+        await pause(80)
+        row = laidOutRow()
+      }
+      if (!row) return
+      row.scrollIntoView({ block: 'center' })
+      // Page CSS can't cross the shadow boundary — flash via inline animation.
+      row.animate(
+        [{ backgroundColor: 'rgba(210, 153, 34, 0.45)' }, { backgroundColor: 'rgba(210, 153, 34, 0)' }],
+        { duration: 1600, easing: 'ease-out' },
+      )
     })()
-  }, [displayFiles])
+  }, [viewedFiles, setViewed])
 
   const sidebarContent = (
     <div className="sidebar-content">

@@ -1176,6 +1176,35 @@ body {
     border-color: var(--success);
 }
 
+/* "Diff went stale" pill — shown when the digest poll sees the working tree
+   move past the loaded diff; clicking refetches in place. */
+.diff-stale-pill {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
+    padding: 6px 14px;
+    background: var(--primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.diff-stale-pill:hover {
+    background: var(--primary-hover);
+}
+
+@media (prefers-color-scheme: dark) {
+    .diff-stale-pill {
+        color: #0d1117;
+    }
+}
+
 /* Whole-diff content search (native Ctrl+F can't see virtualized rows) */
 .diff-search-toggle {
     position: absolute;

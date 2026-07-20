@@ -137,7 +137,7 @@ function useWindowSize({ factor }: { factor: number }) {
 
 export function App() {
   const { settings, loaded, updateSettings } = useSettings()
-  const { patch, repoName, branch, customMode, binaryFiles, tabSizeMap, untrackedFiles, loading, error } = useDiff({
+  const { patch, repoName, branch, customMode, binaryFiles, tabSizeMap, untrackedFiles, loading, error, stale, refresh } = useDiff({
     staged: settings.staged,
     untracked: settings.untracked,
   })
@@ -483,6 +483,11 @@ export function App() {
           </Resizable>
         )}
         <main className="main">
+          {stale && (
+            <button className="diff-stale-pill" onClick={() => void refresh()}>
+              Working tree changed — refresh diff
+            </button>
+          )}
           <DiffSearch lines={searchLines} onNavigate={handleSearchNavigate} />
           <Virtualizer className="main-scroll" contentClassName="main-content">
             <DiffViewer

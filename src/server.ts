@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
@@ -90,29 +91,48 @@ function diffContainsFileVersion(patch: string, path: string, oldOid: string, ne
   return false
 }
 
+// Opaque fingerprint of everything /api/diff serves that can change under a
+// running server. The client polls it to learn the loaded diff went stale.
+function computeDiffDigest(patch: string, untrackedFiles: string[], branch: string): string {
+  return createHash('sha256')
+    .update(patch)
+    .update('\0')
+    .update(untrackedFiles.join('\n'))
+    .update('\0')
+    .update(branch)
+    .digest('hex')
+}
+
 export function createApp(clientDir: string, customDiffArgs?: string[], commentStore?: CommentStore) {
   const app = new Hono()
   const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedFiles = new Map<string, string>()
 
-  app.get('/api/diff', (c) => {
-    let patch: string
-    const staged = c.req.query('staged') === 'true'
-    const untracked = c.req.query('untracked') === 'true'
-    if (isCustomMode) {
-      patch = getCustomGitDiff(customDiffArgs)
-    } else {
-      patch = getGitDiff({ staged, untracked })
-    }
-    const repoName = getRepoName()
+  const currentDiff = (staged: boolean, untracked: boolean) => {
+    const patch = isCustomMode ? getCustomGitDiff(customDiffArgs) : getGitDiff({ staged, untracked })
     const branch = getBranchName()
     const untrackedFiles = untracked ? getUntrackedFilePaths() : []
+    return { patch, branch, untrackedFiles, digest: computeDiffDigest(patch, untrackedFiles, branch) }
+  }
+
+  app.get('/api/diff', (c) => {
+    const staged = c.req.query('staged') === 'true'
+    const untracked = c.req.query('untracked') === 'true'
+    const { patch, branch, untrackedFiles, digest } = currentDiff(staged, untracked)
+    const repoName = getRepoName()
     const untrackedSet = new Set(untrackedFiles)
     const binaryFiles = parseBinaryFiles(patch, untrackedSet)
     const filePaths = parseFilePaths(patch)
     const tabSizeMap = getTabSizeForFiles(filePaths)
-    return c.json({ patch, repoName, branch, customMode: isCustomMode, binaryFiles, tabSizeMap, untrackedFiles })
+    return c.json({ patch, repoName, branch, customMode: isCustomMode, binaryFiles, tabSizeMap, untrackedFiles, digest })
+  })
+
+  // Cheap staleness probe: same inputs as /api/diff, none of the parsing.
+  app.get('/api/diff-digest', (c) => {
+    const staged = c.req.query('staged') === 'true'
+    const untracked = c.req.query('untracked') === 'true'
+    return c.json({ digest: currentDiff(staged, untracked).digest })
   })
 
   app.get('/api/file-content', (c) => {

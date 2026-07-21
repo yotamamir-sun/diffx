@@ -82,7 +82,11 @@ export const FileDiffCard = memo(function FileDiffCard({
     if (current.trimEnd() !== a.metadata.lineContent.trimEnd()) {
       return 'the code here changed after this comment was written'
     }
-    if (changedLines && !changedLines[a.side].has(a.lineNumber)) {
+    // `?.` guards against a stray side value that isn't a key of changedLines
+    // (e.g. a legacy 'left'/'right' comment the server didn't normalize): treat
+    // it as a line this diff doesn't modify and pin it to the file top, rather
+    // than throwing `undefined.has()` and white-screening the whole review.
+    if (changedLines && !changedLines[a.side]?.has(a.lineNumber)) {
       return 'this diff does not modify this line'
     }
     return null

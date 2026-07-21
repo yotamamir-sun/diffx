@@ -25,6 +25,19 @@ const MIME_TYPES: Record<string, string> = {
   '.avif': 'image/avif',
 }
 
+// Older diffx clients — and comment snapshots restored from them via the review
+// skill's migrate_comments.py — stored a comment's side as 'left'/'right'
+// instead of the diff library's 'deletions'/'additions'. Normalize at this
+// ingestion boundary so those comments anchor to the right line rather than
+// carrying a side value the renderer can't key on.
+const LEGACY_SIDE: Record<string, 'additions' | 'deletions'> = {
+  right: 'additions',
+  left: 'deletions',
+}
+function normalizeSide(side: unknown): string {
+  return typeof side === 'string' && side in LEGACY_SIDE ? LEGACY_SIDE[side] : (side as string)
+}
+
 export interface BinaryFileInfo {
   path: string
   type: 'added' | 'deleted' | 'changed' | 'untracked'
@@ -221,7 +234,7 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
     const comment = {
       id: crypto.randomUUID(),
       filePath: body.filePath,
-      side: body.side,
+      side: normalizeSide(body.side),
       lineNumber: body.lineNumber,
       lineContent: body.lineContent,
       body: body.body,

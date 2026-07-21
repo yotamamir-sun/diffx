@@ -22,6 +22,7 @@ interface ToolbarProps {
   onBrowserChange: (browser: string) => void
   onCopyComments: () => Promise<void>
   onSendToAgent: () => Promise<void>
+  onShutdown: () => void
 }
 
 export function Toolbar({
@@ -44,10 +45,12 @@ export function Toolbar({
   onBrowserChange,
   onCopyComments,
   onSendToAgent,
+  onShutdown,
 }: ToolbarProps) {
   const [copied, setCopied] = useState(false)
   const [sent, setSent] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [confirmShutdown, setConfirmShutdown] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
 
   const handleCopy = async () => {
@@ -108,7 +111,10 @@ export function Toolbar({
         <div className="settings-wrapper" ref={settingsRef}>
           <button
             className={`btn btn-sm settings-btn ${settingsOpen ? 'btn-active' : ''}`}
-            onClick={() => setSettingsOpen(!settingsOpen)}
+            onClick={() => {
+              setSettingsOpen(!settingsOpen)
+              setConfirmShutdown(false)
+            }}
             title="Settings"
           >
             <Settings size={14} />
@@ -176,6 +182,20 @@ export function Toolbar({
                   <option value="brave">Brave</option>
                 </select>
               </div>
+              <button
+                className="settings-item settings-item-danger"
+                onClick={() => {
+                  if (confirmShutdown) {
+                    setSettingsOpen(false)
+                    setConfirmShutdown(false)
+                    onShutdown()
+                  } else {
+                    setConfirmShutdown(true)
+                  }
+                }}
+              >
+                {confirmShutdown ? 'Click again to confirm' : 'Shut down server'}
+              </button>
             </div>
           )}
         </div>

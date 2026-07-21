@@ -144,6 +144,7 @@ export function App() {
   const { comments, addComment, removeComment, replyToComment, setCommentStatus, editComment, copyAllComments } =
     useComments()
   const [activeFile, setActiveFile] = useState<string | null>(null)
+  const [serverStopped, setServerStopped] = useState(false)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
   const maxSidebarWidth = Math.max(SidebarStorage.minSize, useWindowSize({ factor: 0.5 }))
 
@@ -274,6 +275,11 @@ export function App() {
 
   const handleSendToAgent = useCallback(async () => {
     await fetch('/api/submit', { method: 'POST' })
+  }, [])
+
+  const handleShutdown = useCallback(() => {
+    void fetch('/api/shutdown', { method: 'POST' }).catch(() => {})
+    setServerStopped(true)
   }, [])
 
   const handleCommentClick = useCallback((comment: ReviewComment) => {
@@ -426,6 +432,15 @@ export function App() {
     </div>
   )
 
+  if (serverStopped) {
+    return (
+      <div className="server-stopped">
+        <h2>Server stopped</h2>
+        <p>The diffx server was shut down. This tab is now disconnected — you can close it.</p>
+      </div>
+    )
+  }
+
   if (!loaded || loading) {
     return (
       <div className="loading">
@@ -464,6 +479,7 @@ export function App() {
         onBrowserChange={(browser) => updateSettings({ browser })}
         onCopyComments={copyAllComments}
         onSendToAgent={handleSendToAgent}
+        onShutdown={handleShutdown}
       />
       <div className="app-body">
         {sidebar.collapsed ? (

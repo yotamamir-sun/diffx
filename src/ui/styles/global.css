@@ -204,6 +204,22 @@ body {
     background: var(--bg-secondary);
 }
 
+.settings-item-danger {
+    width: 100%;
+    justify-content: flex-start;
+    background: none;
+    border: none;
+    font: inherit;
+    color: var(--danger);
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 8px;
+}
+
+.settings-item-danger:hover {
+    background: var(--bg-secondary);
+}
+
 .settings-item input[type="checkbox"] {
     cursor: pointer;
 }
@@ -749,6 +765,23 @@ body {
 
 .error {
     color: var(--danger);
+}
+
+.server-stopped {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 8px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.server-stopped h2 {
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 600;
 }
 
 /* File tree */

@@ -112,7 +112,14 @@ export function getBranchName(): string {
 
 // Force standard unified diff regardless of user's git config
 // (e.g. diff.external = difftastic, color.ui = always).
-const DIFF_FLAGS = ['--no-ext-diff', '--no-color'] as const
+//
+// -M / -l0 keep rename detection reliable: -M turns it on even if the repo set
+// diff.renames=false, and -l0 removes git's rename limit so a large diff never
+// silently degrades moved files into unrelated add + delete pairs (git skips
+// inexact rename detection past the limit and only warns on stderr, which we
+// don't surface). The similarity threshold stays at git's 50% default, so a
+// heavily-rewritten move is still reported as add/delete — matching GitHub.
+const DIFF_FLAGS = ['--no-ext-diff', '--no-color', '-M', '-l0'] as const
 
 export function getCustomGitDiff(args: string[]): string {
   return execFileSync('git', ['diff', ...DIFF_FLAGS, ...args], { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })

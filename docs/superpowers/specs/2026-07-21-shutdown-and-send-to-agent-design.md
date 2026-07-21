@@ -123,3 +123,11 @@ new error plumbing is required beyond the explicit stopped-state message.
   unchanged count. (Use a short injectable timeout for the timeout-path test.)
 - Manual: click "Send to agent" wakes a backgrounded waiter; click-to-confirm
   shutdown stops the server and the tab shows the disconnected state.
+
+**Note (implementation):** the repo has no test runner and is headed for an
+upstream PR, so no test framework was added. The server behaviors above were
+verified during development with throwaway `tsx` scripts driving Hono's
+`app.request()` in-process (no running server) — shutdown 404-vs-callback,
+submit increment, and wait-for-submit immediate/park/timeout (via the
+`DIFFX_WAIT_TIMEOUT_MS` override). Client and end-to-end behavior is verified
+in the integrated smoke.

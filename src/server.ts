@@ -9,6 +9,16 @@ import { InMemoryCommentStore } from './comments.js'
 import type { CommentStore } from './comments.js'
 import { isSafePath } from './path.js'
 
+// How long GET /api/wait-for-submit parks before returning the unchanged count.
+// Bounded so no connection hangs indefinitely and the client can re-poll.
+// The env override is for tests only.
+const WAIT_TIMEOUT_MS = Number(process.env.DIFFX_WAIT_TIMEOUT_MS) || 30_000
+
+interface SubmitWaiter {
+  resolve: (count: number) => void
+  timer: ReturnType<typeof setTimeout>
+}
+
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -126,6 +136,13 @@ export function createApp(
   const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedFiles = new Map<string, string>()
+
+  // Monotonic "the reviewer handed a round to the agent" signal. The agent
+  // long-polls /api/wait-for-submit; the "Send to agent" button POSTs here.
+  // In-memory, same lifetime as comments — a restart resets it, which is fine
+  // because the agent re-arms its waiter with since=0 on a fresh review.
+  let submitCount = 0
+  const submitWaiters = new Set<SubmitWaiter>()
 
   const currentDiff = (staged: boolean, untracked: boolean) => {
     const patch = isCustomMode ? getCustomGitDiff(customDiffArgs) : getGitDiff({ staged, untracked })
@@ -297,6 +314,32 @@ export function createApp(
     if (!onShutdown) return c.json({ error: 'Shutdown not supported' }, 404)
     setTimeout(onShutdown, 50)
     return c.json({ ok: true })
+  })
+
+  app.post('/api/submit', (c) => {
+    submitCount++
+    for (const w of submitWaiters) {
+      clearTimeout(w.timer)
+      w.resolve(submitCount)
+    }
+    submitWaiters.clear()
+    return c.json({ count: submitCount })
+  })
+
+  app.get('/api/wait-for-submit', async (c) => {
+    const since = Number(c.req.query('since')) || 0
+    if (submitCount > since) return c.json({ count: submitCount })
+    const count = await new Promise<number>((resolve) => {
+      const waiter: SubmitWaiter = {
+        resolve,
+        timer: setTimeout(() => {
+          submitWaiters.delete(waiter)
+          resolve(submitCount)
+        }, WAIT_TIMEOUT_MS),
+      }
+      submitWaiters.add(waiter)
+    })
+    return c.json({ count })
   })
 
   app.get('/*', async (c) => {

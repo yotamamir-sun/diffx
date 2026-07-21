@@ -272,6 +272,10 @@ export function App() {
     setViewed(filePath, viewed)
   }, [setViewed])
 
+  const handleSendToAgent = useCallback(async () => {
+    await fetch('/api/submit', { method: 'POST' })
+  }, [])
+
   const handleCommentClick = useCallback((comment: ReviewComment) => {
     // A file marked Viewed collapses to a header stub, unmounting its comment
     // bubbles — un-view it so the target can render.
@@ -459,6 +463,7 @@ export function App() {
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
         onBrowserChange={(browser) => updateSettings({ browser })}
         onCopyComments={copyAllComments}
+        onSendToAgent={handleSendToAgent}
       />
       <div className="app-body">
         {sidebar.collapsed ? (

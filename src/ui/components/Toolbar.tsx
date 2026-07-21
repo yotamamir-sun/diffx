@@ -21,6 +21,7 @@ interface ToolbarProps {
   onSoftWrapChange: (softWrap: boolean) => void
   onBrowserChange: (browser: string) => void
   onCopyComments: () => Promise<void>
+  onSendToAgent: () => Promise<void>
 }
 
 export function Toolbar({
@@ -42,8 +43,10 @@ export function Toolbar({
   onSoftWrapChange,
   onBrowserChange,
   onCopyComments,
+  onSendToAgent,
 }: ToolbarProps) {
   const [copied, setCopied] = useState(false)
+  const [sent, setSent] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
 
@@ -51,6 +54,12 @@ export function Toolbar({
     await onCopyComments()
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSend = async () => {
+    await onSendToAgent()
+    setSent(true)
+    setTimeout(() => setSent(false), 2000)
   }
 
   useEffect(() => {
@@ -176,6 +185,9 @@ export function Toolbar({
           disabled={commentCount === 0}
         >
           {copied ? 'Copied!' : `Copy comments (${commentCount})`}
+        </button>
+        <button className="btn btn-primary btn-sm" onClick={handleSend}>
+          {sent ? 'Sent ✓' : 'Send to agent'}
         </button>
       </div>
     </div>

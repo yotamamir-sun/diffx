@@ -116,7 +116,12 @@ function computeDiffDigest(patch: string, untrackedFiles: string[], branch: stri
     .digest('hex')
 }
 
-export function createApp(clientDir: string, customDiffArgs?: string[], commentStore?: CommentStore) {
+export function createApp(
+  clientDir: string,
+  customDiffArgs?: string[],
+  commentStore?: CommentStore,
+  onShutdown?: () => void,
+) {
   const app = new Hono()
   const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
@@ -284,6 +289,16 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
     return c.json({ ok: true })
   })
 
+  // Lets the reviewer stop the server from the UI. Injected (not a hard
+  // process.exit here) so tests mounting createApp don't kill the runner; the
+  // real CLI passes () => process.exit(0). Respond first, then exit on the next
+  // tick so the 200 flushes before the process dies.
+  app.post('/api/shutdown', (c) => {
+    if (!onShutdown) return c.json({ error: 'Shutdown not supported' }, 404)
+    setTimeout(onShutdown, 50)
+    return c.json({ ok: true })
+  })
+
   app.get('/*', async (c) => {
     let filePath = c.req.path
     if (filePath === '/') filePath = '/index.html'
@@ -317,7 +332,7 @@ export function startServer(options: {
   clientDir: string
   customDiffArgs?: string[]
 }): Promise<{ port: number }> {
-  const app = createApp(options.clientDir, options.customDiffArgs)
+  const app = createApp(options.clientDir, options.customDiffArgs, undefined, () => process.exit(0))
 
   return new Promise((resolve) => {
     const server = serve({

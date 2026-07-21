@@ -19,6 +19,7 @@ interface DiffData {
 export interface DiffOptions {
   staged: boolean
   untracked: boolean
+  paused?: boolean
 }
 
 const DIGEST_POLL_MS = 3000
@@ -62,6 +63,7 @@ export function useDiff(options: DiffOptions) {
   // Poll a fingerprint of the diff so edits to the working tree surface
   // without the user having to know to reload the tab.
   useEffect(() => {
+    if (options.paused) return
     const id = window.setInterval(() => {
       if (document.hidden) return
       fetch(`/api/diff-digest?${query}`)
@@ -74,7 +76,7 @@ export function useDiff(options: DiffOptions) {
         })
     }, DIGEST_POLL_MS)
     return () => window.clearInterval(id)
-  }, [query])
+  }, [query, options.paused])
 
   // Derived, so a completed refresh (data.digest catches up) clears it with
   // no flag juggling. Undefined data.digest = pre-digest server; never stale.

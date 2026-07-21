@@ -21,7 +21,7 @@ interface ToolbarProps {
   onSoftWrapChange: (softWrap: boolean) => void
   onBrowserChange: (browser: string) => void
   onCopyComments: () => Promise<void>
-  onSendToAgent: () => Promise<void>
+  onSendToAgent: () => Promise<boolean>
   onShutdown: () => void
 }
 
@@ -48,7 +48,7 @@ export function Toolbar({
   onShutdown,
 }: ToolbarProps) {
   const [copied, setCopied] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [sent, setSent] = useState<'ok' | 'fail' | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [confirmShutdown, setConfirmShutdown] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
@@ -60,15 +60,16 @@ export function Toolbar({
   }
 
   const handleSend = async () => {
-    await onSendToAgent()
-    setSent(true)
-    setTimeout(() => setSent(false), 2000)
+    const ok = await onSendToAgent()
+    setSent(ok ? 'ok' : 'fail')
+    setTimeout(() => setSent(null), 2000)
   }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
         setSettingsOpen(false)
+        setConfirmShutdown(false)
       }
     }
     if (settingsOpen) {
@@ -173,6 +174,7 @@ export function Toolbar({
                   onChange={(e) => {
                     onBrowserChange(e.target.value)
                     setSettingsOpen(false)
+                    setConfirmShutdown(false)
                   }}
                 >
                   <option value="">Default</option>
@@ -207,7 +209,7 @@ export function Toolbar({
           {copied ? 'Copied!' : `Copy comments (${commentCount})`}
         </button>
         <button className="btn btn-primary btn-sm" onClick={handleSend}>
-          {sent ? 'Sent ✓' : 'Send to agent'}
+          {sent === 'ok' ? 'Sent ✓' : sent === 'fail' ? 'Failed — server gone?' : 'Send to agent'}
         </button>
       </div>
     </div>

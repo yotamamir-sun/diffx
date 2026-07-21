@@ -137,14 +137,15 @@ function useWindowSize({ factor }: { factor: number }) {
 
 export function App() {
   const { settings, loaded, updateSettings } = useSettings()
+  const [serverStopped, setServerStopped] = useState(false)
   const { patch, repoName, branch, customMode, binaryFiles, tabSizeMap, untrackedFiles, loading, error, stale, refresh } = useDiff({
     staged: settings.staged,
     untracked: settings.untracked,
+    paused: serverStopped,
   })
   const { comments, addComment, removeComment, replyToComment, setCommentStatus, editComment, copyAllComments } =
     useComments()
   const [activeFile, setActiveFile] = useState<string | null>(null)
-  const [serverStopped, setServerStopped] = useState(false)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
   const maxSidebarWidth = Math.max(SidebarStorage.minSize, useWindowSize({ factor: 0.5 }))
 
@@ -274,7 +275,8 @@ export function App() {
   }, [setViewed])
 
   const handleSendToAgent = useCallback(async () => {
-    await fetch('/api/submit', { method: 'POST' })
+    const res = await fetch('/api/submit', { method: 'POST' }).catch(() => null)
+    return !!res?.ok
   }, [])
 
   const handleShutdown = useCallback(() => {

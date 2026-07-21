@@ -126,6 +126,19 @@ function computeDiffDigest(patch: string, untrackedFiles: string[], branch: stri
     .digest('hex')
 }
 
+// Reject browser cross-origin POSTs to the state-changing endpoints. A browser
+// always sends Origin on a cross-site request; a same-origin request's Origin
+// (when present) matches Host. Non-browser clients (curl, the review scripts)
+// send no Origin and are allowed — they carry no ambient credentials to abuse.
+function isSameOrigin(origin: string | undefined, host: string | undefined): boolean {
+  if (!origin) return true
+  try {
+    return new URL(origin).host === host
+  } catch {
+    return false
+  }
+}
+
 export function createApp(
   clientDir: string,
   customDiffArgs?: string[],
@@ -311,12 +324,18 @@ export function createApp(
   // real CLI passes () => process.exit(0). Respond first, then exit on the next
   // tick so the 200 flushes before the process dies.
   app.post('/api/shutdown', (c) => {
+    if (!isSameOrigin(c.req.header('Origin'), c.req.header('Host'))) {
+      return c.json({ error: 'cross-origin request forbidden' }, 403)
+    }
     if (!onShutdown) return c.json({ error: 'Shutdown not supported' }, 404)
     setTimeout(onShutdown, 50)
     return c.json({ ok: true })
   })
 
   app.post('/api/submit', (c) => {
+    if (!isSameOrigin(c.req.header('Origin'), c.req.header('Host'))) {
+      return c.json({ error: 'cross-origin request forbidden' }, 403)
+    }
     submitCount++
     for (const w of submitWaiters) {
       clearTimeout(w.timer)
